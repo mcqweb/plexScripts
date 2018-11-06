@@ -15,7 +15,6 @@ TOTAL_FILMS = 20 # Number of Films to add to playlist
 plex = PlexServer(PLEX_URL, TOKEN)
 
 child_lst = []
-aired_lst = []
 
 # Remove Any Existing Random Playlists
 for playlist in plex.playlists():
