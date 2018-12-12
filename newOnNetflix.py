@@ -15,7 +15,7 @@ plexToken = ""
 OMDBAPI = ""
 theMovieDBAPI = ""
 ignorefilename = 'ignorefilms.txt'
-grabfilename = 'grabfilms.txt'
+grabfilename = 'grabfilms'
 
 args = parser.parse_args()
 
@@ -79,13 +79,13 @@ def IMDBInfo(title,year):
 	else:
 		return " "+title+" ("+str(year)+")\n  (No Matches on IMDB)"
 	
-def ignoredFilms(title,year):
+def ignoredFilms(title,year,locale):
 	filmString = title + " ("+str(year)+")"
 	if os.path.isfile(ignorefilename) and filmString in open(ignorefilename).read():
 		if not args.silent:
 			print(title +" is in Ignore list")
 		return True
-	elif os.path.isfile(grabfilename) and filmString in open(grabfilename).read():
+	elif os.path.isfile(grabfilename+'_'+locale+'.txt') and filmString in open(grabfilename+'_'+locale+'.txt').read():
 		if not args.silent:
 			print(title +" is already in Grab list")
 			return True
@@ -99,14 +99,13 @@ def checkFilm(title,year):
 		print(" "+title+" : Skipped due to name")
 		return
 	matchMovie = LibraryMovies.select_one('video[title="'+title+'"]')
-	#print(matchMovie)
 	if matchMovie and matchMovie.get("year") == str(year):
 		if not args.silent:
 			print(title +" is already in our Films Library")	
 		return False
 	else:
 		matchKidsMovie = LibraryKidsMovies.select_one('video[title="'+title+'"]')
-		if matchKidsMovie and matchKidsMovie.get("year") == year:
+		if matchKidsMovie and matchKidsMovie.get("year") == str(year):
 			if not args.silent:
 				print(title +" is already in Kids Films")
 			return False
@@ -116,11 +115,24 @@ def checkFilm(title,year):
 		print("")
 
 #print(soup)
+
+def lookupURL(movieID,locale):
+	res = requests.get('https://apis.justwatch.com/content/titles/movie/'+str(movieID)+'/locale/'+locale)
+	try:
+		FilmJSON = res.json()
+		offers = FilmJSON['offers']
+		for offer in offers:
+			if offer['provider_id'] == 8:
+				return offer['urls']['standard_web']
+				break
+	except:
+		return None
+
 def checkNewOnNetflix(CountryCode):
 	NetflixURL = "https://apis.justwatch.com/content/titles/"+CountryCode+"/new?body=%7B%22age_certifications%22:null,%22content_types%22:%5B%22movie%22%5D,%22genres%22:null,%22languages%22:null,%22max_price%22:null,%22min_price%22:null,%22monetization_types%22:%5B%22flatrate%22,%22ads%22,%22free%22,%22rent%22,%22buy%22%5D,%22page%22:"+str(days)+",%22page_size%22:200,%22presentation_types%22:null,%22providers%22:%5B%22nfx%22%5D,%22release_year_from%22:null,%22release_year_until%22:null,%22scoring_filter_types%22:null,%22timeline_type%22:null,%22titles_per_provider%22:200%7D"
 	res = requests.get(NetflixURL)
 	NetflixMovies = res.json()
-
+	#print(NetflixURL)
 	NetFlixItems = NetflixMovies['days'][0]['providers']
 
 	if not args.silent:
@@ -134,15 +146,16 @@ def checkNewOnNetflix(CountryCode):
 		except:
 			print("Skipped Non ascii-encoded unicode string")
 		else:
-			if not ignoredFilms(movie['title'],movie['original_release_year']):
+			if not ignoredFilms(movie['title'],movie['original_release_year'],CountryCode[3:]):
 				if checkFilm(movie['title'],movie['original_release_year']):
 					#print(movie)
 					print("  Netflix Region : "+ CountryCode[3:])
 					setRecording = input("Should we download this Film? (y|n) ")
 					if setRecording.lower() == "y":
 						# Add to the Grab list
-						with open(grabfilename, 'a') as file:
-							file.write(movie['title'] + " ("+str(movie['original_release_year'])+") ("+CountryCode[3:]+")\n")
+						with open(grabfilename+'_'+CountryCode[3:]+'.txt', 'a') as file:
+							file.write(movie['title'] + " ("+str(movie['original_release_year'])+")\n")
+							file.write(lookupURL(movie['id'],CountryCode)+"\n")
 							file.close			
 					if setRecording.lower() == "n":
 						# Add to the ignore list
