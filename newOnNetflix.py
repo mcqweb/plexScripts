@@ -47,10 +47,11 @@ if country=="JP" :
 #Add option to ignore films
 #Create file with those to download and from where
 
-res = requests.get(plexURL+"/library/sections/1/all?type=1&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.67.1&X-Plex-Platform=Firefox&X-Plex-Platform-Version=61.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Firefox&X-Plex-Device-Screen-Resolution=1920x929%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en&X-Plex-Text-Format=plain")
-#print(plexURL+"/library/sections/1/all?type=1&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.67.1&X-Plex-Platform=Firefox&X-Plex-Platform-Version=61.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Firefox&X-Plex-Device-Screen-Resolution=1920x929%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en&X-Plex-Text-Format=plain")
-#exit()
+
 if not args.mode == 'TV':
+	res = requests.get(plexURL+"/library/sections/1/all?type=1&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.67.1&X-Plex-Platform=Firefox&X-Plex-Platform-Version=61.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Firefox&X-Plex-Device-Screen-Resolution=1920x929%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en&X-Plex-Text-Format=plain")
+	#print(plexURL+"/library/sections/1/all?type=1&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.67.1&X-Plex-Platform=Firefox&X-Plex-Platform-Version=61.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Firefox&X-Plex-Device-Screen-Resolution=1920x929%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en&X-Plex-Text-Format=plain")
+	#exit()
 	if not args.silent:
 		print("")
 		print("Getting full list of movies in our main library")
@@ -69,8 +70,14 @@ if not args.mode == 'TV':
 
 	if not args.silent:
 		print(str(len(LibraryKidsMovies.find_all('video')))+" movie(s) found")
-else:
-	print("Only Checking TV Shows, no library look ups as yet")
+		
+if not args.mode == 'FILM':
+	print("Getting full list of TV Shows")
+	res = requests.get(plexURL+"/library/sections/4/all?type=2&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.69.1&X-Plex-Platform=Chrome&X-Plex-Platform-Version=70.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Chrome&X-Plex-Device-Screen-Resolution=1920x969%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en-GB&X-Plex-Text-Format=plain")
+	LibraryShows = BeautifulSoup(res.text,"html.parser")
+	res = requests.get(plexURL+"/library/sections/3/all?type=2&includeCollections=0&X-Plex-Product=Plex%20Web&X-Plex-Version=3.69.1&X-Plex-Platform=Chrome&X-Plex-Platform-Version=70.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Chrome&X-Plex-Device-Screen-Resolution=1920x969%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en-GB&X-Plex-Text-Format=plain")
+	LibraryKidsShows = BeautifulSoup(res.text,"html.parser")
+	#print(LibraryShows)
 
 def IMDBInfo(title,year):
 	res= requests.get("http://www.omdbapi.com/?apikey="+OMDBAPI+"&type=movie&r=xml&t="+title+"&y="+str(year))
@@ -141,9 +148,35 @@ def checkShow(title,year,season):
 	if "," in title:
 		print(" "+title+" : Skipped due to name")
 		return
-	print(title,season,year)
-	return True
+	matchShow= LibraryShows.select_one('directory[title="'+title+'"]')
+	#print(matchShow)
+	if matchShow and checkSeasons(matchShow['key'],season):
+		if not args.silent:
+			print(title +" " + season + " is already in our TV Library")	
+		return False
+	else:
+		matchShow= LibraryKidsMoviesShows.select_one('directory[title="'+title+'"]')
+		if matchShow and checkSeasons(matchShow['key'],season):
+			if not args.silent:
+				print(title +" " + season + " is already in our Kids TV Library")	
+			return False
+		else:
+			print(title,season,year)
+			return True
 		
+def checkSeasons(childrenURL,season):
+	res = requests.get(plexURL+childrenURL+"?X-Plex-Token="+plexToken)
+	seasons = BeautifulSoup(res.text,"html.parser")
+	#print(seasons)
+	#print(season)
+	matchSeason = seasons.select_one('directory[title="'+season+'"]')
+	#print(matchSeason)
+	if matchSeason:
+		return True
+	else:
+		return False
+	
+
 #print(soup)
 
 def lookupURL(movieID,locale):
@@ -261,9 +294,9 @@ if country=="ALL":
 		checkNewTVOnNetflix(JPUrlPart)
 else:
 	if mode=="ALL" or mode=="FILM":
-		print("Checking Films")
+		print("\nChecking Films")
 		checkNewOnNetflix(CountryUrlPart)
 	if mode=="ALL" or mode=="TV":
-		print("Checking Shows")
+		print("\nChecking Shows")
 		checkNewTVOnNetflix(CountryUrlPart)
 
