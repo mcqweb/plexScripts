@@ -14,12 +14,13 @@ parser.add_argument("-n", "--new", help="Only prompt episodes added in last 24 h
 plexURL = "http://192.168.1.114:32400"
 plexToken = ""
 OMDBAPI = ""
+networkpath = '\\\\192.168.1.114\\Media\\Netflix\\'
 ignorefilename = 'ignoreshows.txt'
 if os.path.isfile(networkpath+ignorefilename):
 	ignorelist = open(networkpath+ignorefilename).read()
 	
 TVURL = plexURL+"/tv.plex.providers.epg.onconnect:16/sections/2/all?type=4&X-Plex-Container-Start=0&X-Plex-Container-Size=5000&X-Plex-Product=Plex%20Web&X-Plex-Version=3.77.4&X-Plex-Platform=Chrome&X-Plex-Platform-Version=70.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Chrome&X-Plex-Device-Screen-Resolution=1920x969%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en-GB&X-Plex-Text-Format=plain"
-schedulingDefaults = "/media/subscriptions?prefs%5BminVideoQuality%5D=0&prefs%5BreplaceLowerQuality%5D=false&prefs%5BrecordPartials%5D=true&prefs%5BstartOffsetMinutes%5D=3&prefs%5BendOffsetMinutes%5D=5&prefs%5BlineupChannel%5D=&prefs%5BstartTimeslot%5D=-1&prefs%5BcomskipEnabled%5D=-1&prefs%5BoneShot%5D=true&targetSectionLocationID=&includeGrabs=1&X-Plex-Product=Plex%20Web&X-Plex-Version=3.67.1&X-Plex-Client-Identifier=kud0vo2yuks7385vlmhgm8lv&X-Plex-Platform=Chrome&X-Plex-Platform-Version=69.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Chrome&X-Plex-Device-Screen-Resolution=1920x969%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en-GB"
+schedulingDefaults = "/media/subscriptions?prefs%5BminVideoQuality%5D=0&prefs%5BreplaceLowerQuality%5D=false%26prefs%5BautoDeletionItemPolicyUnwatchedLibrary%5D%3D0%26prefs%5BautoDeletionItemPolicyWatchedLibrary%5D%3D0&prefs%5BrecordPartials%5D=true&prefs%5BstartOffsetMinutes%5D=3&prefs%5BendOffsetMinutes%5D=5&prefs%5BlineupChannel%5D=&prefs%5BstartTimeslot%5D=-1&prefs%5BcomskipEnabled%5D=-1&prefs%5BoneShot%5D=false&targetSectionLocationID=&includeGrabs=1&X-Plex-Product=Plex%20Web&X-Plex-Version=3.77.4&X-Plex-Platform=Chrome&X-Plex-Platform-Version=69.0&X-Plex-Sync-Version=2&X-Plex-Device=Windows&X-Plex-Device-Name=Chrome&X-Plex-Device-Screen-Resolution=1920x969%2C1920x1080&X-Plex-Token="+plexToken+"&X-Plex-Language=en-GB"
 today = datetime.today()
 yesterday = today - timedelta(1) 
 TVTargetLibraryID = "16"
@@ -39,6 +40,7 @@ def ignoredShows(showtitle,episodetitle):
 		return False
 
 def checkSchedule(showtitle,episodetitle):
+	#print(showtitle,episodetitle)
 	matchShow = ScheduledRecordings.select_one('directory[title="'+episodetitle.replace(','," ")+'"]')
 	if matchShow: 
 		print("We're already recording all episodes of "+episodetitle)
@@ -95,18 +97,21 @@ def recordEpisode(Episode,fullShow):
 			RecordURL += "&hints[type]=2&type=2"
 		else:
 			RecordURL += "&hints[type]=4&type=4"
-	if not fullShow and Episode.has_attr("year"):
+	if Episode.has_attr("year"):
 		RecordURL += "&hints[year]="+urllib.parse.quote_plus(Episode['year'])
 	if Episode.has_attr("airingchannels"):
 		RecordURL += "&params[airingChannels]="+urllib.parse.quote_plus(Episode['airingchannels'])
 	RecordURL += "&params[libraryType]=2&params[mediaProviderID]="+mediaProviderID
 	
 	res = requests.post(RecordURL)
+	#print(RecordURL)
 	if res.status_code == 200:
 		print(" Recording successfully created")
+		#print(res.text)
+		#exit()
 		return True
 	else:
-		print(" Error Returned : "+res.status_code)
+		print(" Error Returned : "+str(res.status_code))
 		return False
 
 args = parser.parse_args()
@@ -168,13 +173,13 @@ for Episode in EPGShows.find_all("video"):
 				setRecording = input("\nShould we set a recording for this Show? (y|e|i|n|s) ")
 			if setRecording.lower() == "s":
 				# Add to the ignore list
-				with open(ignorefilename, 'a') as file:
+				with open(networkpath+ignorefilename, 'a') as file:
 					ignorelist += Episode['grandparenttitle']+'\n'
 					file.write(Episode['grandparenttitle']+'\n')
 					file.close
 			if setRecording.lower() == "i":
 				# Add to the ignore list
-				with open(ignorefilename, 'a') as file:
+				with open(networkpath+ignorefilename, 'a') as file:
 					ignorelist += Episode['grandparenttitle']+'\n'
 					file.write(Episode['grandparenttitle']+" ("+Episode['parenttitle']+") - "+Episode['title']+'\n')
 					file.close
